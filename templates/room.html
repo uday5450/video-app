@@ -747,6 +747,51 @@ async function initiateCall(username) {
         console.error('Error creating offer:', error);
     }
 }
+
+// Add leave button click handler
+document.getElementById('leaveBtn').addEventListener('click', async () => {
+    try {
+        // Stop all local tracks
+        if (localStream) {
+            localStream.getTracks().forEach(track => {
+                track.stop();
+                track.enabled = false;
+            });
+            localStream = null;
+        }
+
+        // Close all peer connections
+        Object.values(peerConnections).forEach(pc => {
+            if (pc) {
+                pc.close();
+            }
+        });
+        peerConnections = {};
+
+        // Close WebSocket connections
+        if (videoSocket && videoSocket.readyState === WebSocket.OPEN) {
+            videoSocket.close(1000, "User left the room");
+        }
+        if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+            chatSocket.close(1000, "User left the room");
+        }
+
+        // Clear video elements
+        const videosContainer = document.getElementById('videos-container');
+        if (videosContainer) {
+            videosContainer.innerHTML = '';
+        }
+
+        // Redirect to home page after a short delay to ensure connections are closed
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 100);
+    } catch (error) {
+        console.error('Error during cleanup:', error);
+        // Redirect anyway in case of error
+        window.location.href = '/';
+    }
+});
 </script>
 
 {% block extra_css %}

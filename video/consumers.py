@@ -61,11 +61,11 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
                 }
             )
 
-        # Leave room group
-        await self.channel_layer.group_discard(
-            self.room_group_name,
-            self.channel_name
-        )
+            # Leave room group
+            await self.channel_layer.group_discard(
+                self.room_group_name,
+                self.channel_name
+            )
 
     async def receive(self, text_data):
         data = json.loads(text_data)
@@ -213,9 +213,8 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
                 room__name=self.room_name,
                 user=self.user
             )
-            # Instead of deleting, mark as inactive
-            participant.is_active = False
-            participant.save()
+            # Instead of just marking inactive, delete the participant
+            participant.delete()
         except Participant.DoesNotExist:
             pass
 
