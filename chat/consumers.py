@@ -14,7 +14,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.room_name = self.scope['url_route']['kwargs']['room_name']
         self.room_group_name = f'chat_{self.room_name}'
         self.user = self.scope["user"]
-        self.username = self.user.email
+        self.username = self.user.email  # Use email as username
 
         # Join room group
         await self.channel_layer.group_add(
@@ -81,7 +81,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return [
             {
                 'message': msg.content,
-                'username': msg.user.email,
+                'username': msg.username,
                 'timestamp': msg.timestamp.isoformat()
             }
             for msg in reversed(messages)
@@ -92,6 +92,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         room, _ = Room.objects.get_or_create(name=self.room_name)
         Message.objects.create(
             room=room,
-            user=self.user,
+            username=self.username,
             content=message
         ) 

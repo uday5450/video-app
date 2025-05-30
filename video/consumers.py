@@ -109,6 +109,46 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
                 }
             )
 
+        elif message_type in ['video_offer', 'video_answer', 'ice_candidate']:
+            # Forward WebRTC signaling messages to the target user
+            target_username = data.get('target')
+            if target_username:
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': message_type,
+                        'username': self.username,
+                        'target': target_username,
+                        'offer': data.get('offer'),
+                        'answer': data.get('answer'),
+                        'candidate': data.get('candidate')
+                    }
+                )
+
+    async def video_offer(self, event):
+        if event['target'] == self.username:
+            await self.send(text_data=json.dumps({
+                'type': 'video_offer',
+                'username': event['username'],
+                'offer': event['offer']
+            }))
+
+    async def video_answer(self, event):
+        if event['target'] == self.username:
+            await self.send(text_data=json.dumps({
+                'type': 'video_answer',
+                'username': event['username'],
+                'answer': event['answer']
+            }))
+
+    async def ice_candidate(self, event):
+        if event['target'] == self.username:
+            await self.send(text_data=json.dumps({
+                'type': 'ice_candidate',
+                'username': event['username'],
+                'candidate': event['candidate']
+            }))
+
     async def user_joined(self, event):
         await self.send(text_data=json.dumps({
             'type': 'user_joined',
