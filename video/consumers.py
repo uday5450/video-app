@@ -134,6 +134,8 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def add_participant(self, has_video=False, has_audio=False):
         room, _ = VideoRoom.objects.get_or_create(name=self.room_name)
+        
+        # Update or create participant
         participant, created = Participant.objects.get_or_create(
             room=room,
             user=self.user,
@@ -143,7 +145,9 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
                 'is_active': True
             }
         )
+        
         if not created:
+            # Update existing participant's status
             participant.has_video = has_video
             participant.has_audio = has_audio
             participant.is_active = True
@@ -169,20 +173,30 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
                 room__name=self.room_name,
                 user=self.user
             )
-            participant.delete()
+            # Instead of deleting, mark as inactive
+            participant.is_active = False
+            participant.save()
         except Participant.DoesNotExist:
             pass
 
     @database_sync_to_async
     def get_active_users(self):
-        room = VideoRoom.objects.get(name=self.room_name)
-        participants = Participant.objects.filter(room=room, is_active=True)
-        return [
-            {
-                'username': p.user.email,
-                'hasVideo': p.has_video,
-                'hasAudio': p.has_audio,
-                'isActive': p.is_active
-            }
-            for p in participants
-        ] 
+        try:
+            room = VideoRoom.objects.get(name=self.room_name)
+            # Only get participants that are marked as active
+            participants = Participant.objects.filter(
+                room=room,
+                is_active=True
+            ).select_related('user')
+            
+            return [
+                {
+                    'username': p.user.email,
+                    'hasVideo': p.has_video,
+                    'hasAudio': p.has_audio,
+                    'isActive': True
+                }
+                for p in participants
+            ]
+        except VideoRoom.DoesNotExist:
+            return [] 

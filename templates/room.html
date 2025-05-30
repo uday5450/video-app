@@ -73,8 +73,9 @@
 </div>
 
 <script>
+// Constants and variables
 const roomName = '{{ room_name }}';
-const userEmail = '{{ user_email }}';  // Get user email from Django context
+const userEmail = '{{ user_email }}';
 
 let localStream = null;
 let peerConnections = {};
@@ -97,61 +98,22 @@ const configuration = {
     ]
 };
 
-// Function to update active users list
-function updateActiveUsersList(users) {
-    const activeUsersList = document.getElementById('activeUsersList');
-    activeUsersList.innerHTML = '';
-    const activeCount = document.getElementById('activeCount');
+// Utility Functions
+function updateConnectionStatus(type, status, isError = false) {
+    const statusElement = type === 'video' ? 
+        document.getElementById('connection-status') : 
+        document.getElementById('chat-connection-status');
     
-    users.forEach(user => {
-        const userItem = document.createElement('div');
-        userItem.className = `active-user-item ${user.username === userEmail ? 'current-user' : ''}`;
+    if (statusElement) {
+        statusElement.textContent = status;
+        statusElement.className = `alert ${isError ? 'alert-danger' : 'alert-info'}`;
         
-        const avatar = document.createElement('div');
-        avatar.className = 'user-avatar';
-        avatar.textContent = user.username.charAt(0).toUpperCase();
-        
-        const userInfo = document.createElement('div');
-        userInfo.className = 'user-info';
-        
-        const name = document.createElement('div');
-        name.className = 'user-name';
-        name.textContent = user.username === userEmail ? `${user.username} (You)` : user.username;
-        
-        const controls = document.createElement('div');
-        controls.className = 'user-controls';
-        
-        if (user.hasVideo) {
-            const videoStatus = document.createElement('span');
-            videoStatus.innerHTML = '<i class="fas fa-video"></i>';
-            controls.appendChild(videoStatus);
-        } else {
-            const videoStatus = document.createElement('span');
-            videoStatus.innerHTML = '<i class="fas fa-video-slash"></i>';
-            controls.appendChild(videoStatus);
+        if (status === 'Connected') {
+            statusElement.className = 'alert alert-success';
         }
-        
-        if (user.hasAudio) {
-            const audioStatus = document.createElement('span');
-            audioStatus.innerHTML = '<i class="fas fa-microphone"></i>';
-            controls.appendChild(audioStatus);
-        } else {
-            const audioStatus = document.createElement('span');
-            audioStatus.innerHTML = '<i class="fas fa-microphone-slash"></i>';
-            controls.appendChild(audioStatus);
-        }
-        
-        userInfo.appendChild(name);
-        userInfo.appendChild(controls);
-        userItem.appendChild(avatar);
-        userItem.appendChild(userInfo);
-        activeUsersList.appendChild(userItem);
-    });
-    
-    activeCount.textContent = users.length;
+    }
 }
 
-// WebSocket connection handling
 function getWebSocketUrl(type) {
     const hostname = window.location.hostname;
     const port = window.location.port;
@@ -160,6 +122,74 @@ function getWebSocketUrl(type) {
     return `${wsProtocol}//${hostname}:${port}/ws/${type}/${roomName}/`;
 }
 
+function updateActiveUsersList(users) {
+    const activeUsersList = document.getElementById('activeUsersList');
+    const activeCount = document.getElementById('activeCount');
+    
+    // Clear the current list
+    activeUsersList.innerHTML = '';
+    
+    // Filter only active users if needed (though backend should already do this)
+    const activeUsers = users.filter(user => user.isActive);
+    
+    activeUsers.forEach(user => {
+        const userItem = document.createElement('div');
+        userItem.className = `active-user-item ${user.username === userEmail ? 'current-user' : ''}`;
+        
+        // Create user avatar with first letter of email
+        const avatar = document.createElement('div');
+        avatar.className = 'user-avatar';
+        avatar.textContent = user.username.charAt(0).toUpperCase();
+        
+        const userInfo = document.createElement('div');
+        userInfo.className = 'user-info';
+        
+        // Create user name display
+        const name = document.createElement('div');
+        name.className = 'user-name';
+        name.textContent = user.username === userEmail ? `${user.username} (You)` : user.username;
+        
+        // Create media controls indicators
+        const controls = document.createElement('div');
+        controls.className = 'user-controls';
+        
+        // Video status indicator
+        const videoStatus = document.createElement('span');
+        videoStatus.className = 'media-status';
+        videoStatus.innerHTML = user.hasVideo ? 
+            '<i class="fas fa-video"></i>' : 
+            '<i class="fas fa-video-slash"></i>';
+        videoStatus.title = user.hasVideo ? 'Video On' : 'Video Off';
+        controls.appendChild(videoStatus);
+        
+        // Audio status indicator
+        const audioStatus = document.createElement('span');
+        audioStatus.className = 'media-status';
+        audioStatus.innerHTML = user.hasAudio ? 
+            '<i class="fas fa-microphone"></i>' : 
+            '<i class="fas fa-microphone-slash"></i>';
+        audioStatus.title = user.hasAudio ? 'Audio On' : 'Audio Off';
+        controls.appendChild(audioStatus);
+        
+        // Assemble the user item
+        userInfo.appendChild(name);
+        userInfo.appendChild(controls);
+        userItem.appendChild(avatar);
+        userItem.appendChild(userInfo);
+        activeUsersList.appendChild(userItem);
+    });
+    
+    // Update the active users count
+    activeCount.textContent = activeUsers.length;
+    
+    // Update the active users header
+    const activeUsersHeader = document.querySelector('.active-users-header h6');
+    if (activeUsersHeader) {
+        activeUsersHeader.innerHTML = `Active Users <span id="activeCount" class="badge bg-success">${activeUsers.length}</span>`;
+    }
+}
+
+// WebSocket Functions
 function createVideoSocket() {
     if (videoSocket && (videoSocket.readyState === WebSocket.OPEN || videoSocket.readyState === WebSocket.CONNECTING)) {
         return;
@@ -210,6 +240,7 @@ function createVideoSocket() {
                     
                 case 'user_left':
                     console.log('User left:', data.username);
+                    updateActiveUsersList(data.users);
                     break;
                     
                 case 'active_users_list':
@@ -233,8 +264,207 @@ function createVideoSocket() {
     }
 }
 
-// Initialize connections when page loads
-createVideoSocket();
+function createChatSocket() {
+    if (chatSocket && (chatSocket.readyState === WebSocket.OPEN || chatSocket.readyState === WebSocket.CONNECTING)) {
+        return;
+    }
+
+    updateConnectionStatus('chat', 'Connecting...');
+    
+    try {
+        const wsUrl = getWebSocketUrl('chat');
+        console.log('Connecting to chat WebSocket:', wsUrl);
+        chatSocket = new WebSocket(wsUrl);
+
+        chatSocket.onopen = () => {
+            console.log('Chat WebSocket connected');
+            updateConnectionStatus('chat', 'Connected');
+            
+            // Enable chat input
+            const chatInput = document.getElementById('chat-input');
+            const sendButton = document.getElementById('send-message');
+            if (chatInput) chatInput.disabled = false;
+            if (sendButton) sendButton.disabled = false;
+        };
+
+        chatSocket.onclose = () => {
+            console.log('Chat WebSocket closed');
+            updateConnectionStatus('chat', 'Disconnected', true);
+            
+            // Disable chat input
+            const chatInput = document.getElementById('chat-input');
+            const sendButton = document.getElementById('send-message');
+            if (chatInput) chatInput.disabled = true;
+            if (sendButton) sendButton.disabled = true;
+        };
+
+        chatSocket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            switch (data.type) {
+                case 'chat_message':
+                    addChatMessage(data);
+                    break;
+                case 'chat_history':
+                    loadChatHistory(data.messages);
+                    break;
+            }
+        };
+
+        chatSocket.onerror = (error) => {
+            console.error('Chat WebSocket error:', error);
+            updateConnectionStatus('chat', 'Connection error', true);
+        };
+    } catch (error) {
+        console.error('Error creating chat WebSocket:', error);
+        updateConnectionStatus('chat', 'Connection error', true);
+    }
+}
+
+function addChatMessage(data) {
+    const chatMessages = document.getElementById('chat-messages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chat-message ${data.username === userEmail ? 'own-message' : ''}`;
+    
+    const timestamp = new Date(data.timestamp).toLocaleTimeString();
+    
+    messageDiv.innerHTML = `
+        <div class="message-header">
+            <span class="message-username">${data.username}</span>
+            <span class="message-time">${timestamp}</span>
+        </div>
+        <div class="message-content">${data.message}</div>
+    `;
+    
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function loadChatHistory(messages) {
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.innerHTML = '';
+    messages.forEach(addChatMessage);
+}
+
+// Add chat event listeners
+document.getElementById('chat-input').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+
+document.getElementById('send-message').addEventListener('click', sendMessage);
+
+function sendMessage() {
+    const chatInput = document.getElementById('chat-input');
+    const message = chatInput.value.trim();
+    
+    if (message && chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+        chatSocket.send(JSON.stringify({
+            'type': 'chat_message',
+            'message': message
+        }));
+        chatInput.value = '';
+    }
+}
+
+// Initialize both sockets when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    createVideoSocket();
+    createChatSocket();
+});
+
+// Add some additional styles
+const style = document.createElement('style');
+style.textContent = `
+    .media-status {
+        padding: 4px;
+        border-radius: 50%;
+        background: rgba(0,0,0,0.1);
+        width: 24px;
+        height: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 2px;
+    }
+    
+    .media-status i {
+        font-size: 12px;
+    }
+    
+    .media-status:hover {
+        background: rgba(0,0,0,0.2);
+    }
+`;
+
+// Add these styles to your CSS
+const chatStyles = document.createElement('style');
+chatStyles.textContent = `
+    .chat-card-body {
+        display: flex;
+        flex-direction: column;
+        height: 500px;
+    }
+
+    .chat-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+
+    .chat-message {
+        margin-bottom: 15px;
+        padding: 10px;
+        border-radius: 8px;
+        background: #f8f9fa;
+        max-width: 80%;
+    }
+
+    .chat-message.own-message {
+        margin-left: auto;
+        background: #e3f2fd;
+    }
+
+    .message-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 5px;
+        font-size: 0.85em;
+    }
+
+    .message-username {
+        font-weight: 500;
+        color: #666;
+    }
+
+    .message-time {
+        color: #999;
+    }
+
+    .message-content {
+        word-break: break-word;
+    }
+
+    .input-group {
+        padding: 15px;
+        background: white;
+        border-top: 1px solid #dee2e6;
+    }
+
+    #chat-input {
+        resize: none;
+        height: 38px;
+        padding: 8px;
+    }
+
+    #chat-input:disabled {
+        background-color: #e9ecef;
+    }
+`;
+document.head.appendChild(chatStyles);
 </script>
 
 {% block extra_css %}
