@@ -16,15 +16,18 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from django.views.generic import TemplateView
+from django.shortcuts import redirect
 from django.conf import settings
 from django.conf.urls.static import static
-from video.views import RoomView
+
+
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/chat/', include('chat.urls')),
-    path('api/video/', include('video.urls')),
-    path('', TemplateView.as_view(template_name='index.html'), name='home'),
-    path('room/<str:room_name>/', RoomView.as_view(), name='room'),
+    path('admin/', admin.site.urls),# Redirect root based on auth status
+    path('', include(('video.urls', 'video'), namespace='video')),  # Include video app URLs
+    path('chat/', include(('chat.urls', 'chat'), namespace='chat')),  # Include chat app URLs
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+
+# Add media files serving in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

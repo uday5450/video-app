@@ -3,31 +3,49 @@
 {% block content %}
 <div class="container-fluid">
     <div class="row">
-        <!-- Video Section -->
+        <!-- Video and Active Users Section -->
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header">
-                    <h5>Video Call - Room: {{ room_name }}</h5>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5>Video Call - Room: {{ room_name }}</h5>
+                        <span class="badge bg-primary">{{ user_email }}</span>
+                    </div>
                     <div id="connection-status" class="alert alert-info">Connecting...</div>
-                    <div id="participants-list" class="small text-muted"></div>
                 </div>
                 <div class="card-body p-0">
-                    <div id="videos-container">
-                        <div class="video-container small">
-                            <video id="localVideo" autoplay playsinline muted></video>
-                            <div class="video-label">You</div>
+                    <div class="row">
+                        <!-- Active Users Sidebar -->
+                        <div class="col-md-3">
+                            <div class="active-users-sidebar">
+                                <div class="active-users-header">
+                                    <h6>Active Users <span id="activeCount" class="badge bg-success">0</span></h6>
+                                </div>
+                                <div class="active-users-list" id="activeUsersList">
+                                    <!-- Active users will be listed here -->
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="controls-container">
-                        <button class="control-button" id="leaveBtn">
-                            <i class="fas fa-phone-slash"></i>
-                        </button>
-                        <button class="control-button" id="toggleVideoBtn">
-                            <i class="fas fa-video"></i>
-                        </button>
-                        <button class="control-button" id="toggleAudioBtn">
-                            <i class="fas fa-microphone"></i>
-                        </button>
+                        <!-- Video Grid -->
+                        <div class="col-md-9">
+                            <div id="videos-container">
+                                <div class="video-container small">
+                                    <video id="localVideo" autoplay playsinline muted></video>
+                                    <div class="video-label">You ({{ user_email }})</div>
+                                </div>
+                            </div>
+                            <div class="controls-container">
+                                <button class="control-button" id="leaveBtn" data-tooltip="Leave Call">
+                                    <i class="fas fa-phone-slash"></i>
+                                </button>
+                                <button class="control-button" id="toggleVideoBtn" data-tooltip="Toggle Video" data-active="true" disabled>
+                                    <i class="fas fa-video"></i>
+                                </button>
+                                <button class="control-button" id="toggleAudioBtn" data-tooltip="Toggle Audio" data-active="true" disabled>
+                                    <i class="fas fa-microphone"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -40,8 +58,8 @@
                     <h5>Chat</h5>
                     <div id="chat-connection-status" class="alert alert-info">Connecting...</div>
                 </div>
-                <div class="card-body">
-                    <div class="chat-container mb-3" id="chat-messages">
+                <div class="card-body chat-card-body">
+                    <div class="chat-container" id="chat-messages">
                         <!-- Chat messages will be inserted here -->
                     </div>
                     <div class="input-group">
@@ -53,128 +71,11 @@
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_css %}
-<style>
-    .video-container {
-        position: relative;
-        width: 100%;
-        max-width: 800px;
-        margin: 0 auto;
-        background: #000;
-        border-radius: 12px;
-        overflow: hidden;
-        aspect-ratio: 16/9;
-    }
-
-    .video-container.small {
-        position: absolute;
-        width: 200px;
-        height: 150px;
-        bottom: 20px;
-        right: 20px;
-        z-index: 2;
-        border: 2px solid #fff;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    }
-
-    .video-container video {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        background-color: #000;
-    }
-
-    #videos-container {
-        position: relative;
-        width: 100%;
-        height: 600px;
-        background: #f0f0f0;
-        border-radius: 12px;
-        overflow: hidden;
-    }
-
-    .video-label {
-        position: absolute;
-        bottom: 10px;
-        left: 10px;
-        color: white;
-        background: rgba(0, 0, 0, 0.6);
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 14px;
-        z-index: 3;
-    }
-
-    .controls-container {
-        position: absolute;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 3;
-        display: flex;
-        gap: 10px;
-    }
-
-    .control-button {
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        border: none;
-        background: rgba(0, 0, 0, 0.6);
-        color: white;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-
-    .control-button:hover {
-        background: rgba(0, 0, 0, 0.8);
-    }
-
-    .chat-container {
-        height: 400px;
-        overflow-y: auto;
-        border: 1px solid #dee2e6;
-        border-radius: 4px;
-        padding: 10px;
-    }
-
-    .chat-message {
-        margin-bottom: 10px;
-        padding: 8px;
-        border-radius: 4px;
-    }
-
-    .chat-message.own {
-        background-color: #e3f2fd;
-        margin-left: 20%;
-    }
-
-    .chat-message.other {
-        background-color: #f5f5f5;
-        margin-right: 20%;
-    }
-
-    .chat-username {
-        font-weight: bold;
-        font-size: 0.9em;
-    }
-
-    .chat-timestamp {
-        font-size: 0.8em;
-        color: #666;
-    }
-</style>
-{% endblock %}
-
-{% block extra_js %}
 <script>
 const roomName = '{{ room_name }}';
-const username = new URLSearchParams(window.location.search).get('username');
+const userEmail = '{{ user_email }}';  // Get user email from Django context
+
 let localStream = null;
 let peerConnections = {};
 let videoSocket = null;
@@ -184,14 +85,79 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const configuration = {
     iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' }
+        { 
+            urls: [
+                'stun:stun.l.google.com:19302',
+                'stun:stun1.l.google.com:19302',
+                'stun:stun2.l.google.com:19302',
+                'stun:stun3.l.google.com:19302',
+                'stun:stun4.l.google.com:19302'
+            ]
+        }
     ]
 };
 
-function updateConnectionStatus(type, status, isError = false) {
-    const element = document.getElementById(type === 'video' ? 'connection-status' : 'chat-connection-status');
-    element.className = `alert alert-${isError ? 'danger' : status === 'connected' ? 'success' : 'info'}`;
-    element.textContent = `${type === 'video' ? 'Video' : 'Chat'} Connection: ${status}`;
+// Function to update active users list
+function updateActiveUsersList(users) {
+    const activeUsersList = document.getElementById('activeUsersList');
+    activeUsersList.innerHTML = '';
+    const activeCount = document.getElementById('activeCount');
+    
+    users.forEach(user => {
+        const userItem = document.createElement('div');
+        userItem.className = `active-user-item ${user.username === userEmail ? 'current-user' : ''}`;
+        
+        const avatar = document.createElement('div');
+        avatar.className = 'user-avatar';
+        avatar.textContent = user.username.charAt(0).toUpperCase();
+        
+        const userInfo = document.createElement('div');
+        userInfo.className = 'user-info';
+        
+        const name = document.createElement('div');
+        name.className = 'user-name';
+        name.textContent = user.username === userEmail ? `${user.username} (You)` : user.username;
+        
+        const controls = document.createElement('div');
+        controls.className = 'user-controls';
+        
+        if (user.hasVideo) {
+            const videoStatus = document.createElement('span');
+            videoStatus.innerHTML = '<i class="fas fa-video"></i>';
+            controls.appendChild(videoStatus);
+        } else {
+            const videoStatus = document.createElement('span');
+            videoStatus.innerHTML = '<i class="fas fa-video-slash"></i>';
+            controls.appendChild(videoStatus);
+        }
+        
+        if (user.hasAudio) {
+            const audioStatus = document.createElement('span');
+            audioStatus.innerHTML = '<i class="fas fa-microphone"></i>';
+            controls.appendChild(audioStatus);
+        } else {
+            const audioStatus = document.createElement('span');
+            audioStatus.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+            controls.appendChild(audioStatus);
+        }
+        
+        userInfo.appendChild(name);
+        userInfo.appendChild(controls);
+        userItem.appendChild(avatar);
+        userItem.appendChild(userInfo);
+        activeUsersList.appendChild(userItem);
+    });
+    
+    activeCount.textContent = users.length;
+}
+
+// WebSocket connection handling
+function getWebSocketUrl(type) {
+    const hostname = window.location.hostname;
+    const port = window.location.port;
+    const isSecure = window.location.protocol === 'https:';
+    const wsProtocol = isSecure ? 'wss:' : 'ws:';
+    return `${wsProtocol}//${hostname}:${port}/ws/${type}/${roomName}/`;
 }
 
 function createVideoSocket() {
@@ -202,432 +168,195 @@ function createVideoSocket() {
     updateConnectionStatus('video', 'Connecting...');
     
     try {
-        videoSocket = new WebSocket(
-            'ws://' + window.location.host + '/ws/video/' + roomName + '/'
-        );
+        const wsUrl = getWebSocketUrl('video');
+        console.log('Connecting to video WebSocket:', wsUrl);
+        videoSocket = new WebSocket(wsUrl);
 
         videoSocket.onopen = () => {
             console.log('Video WebSocket connected');
             updateConnectionStatus('video', 'Connected');
             reconnectAttempts = 0;
             
-            // Rejoin the room when reconnected
-            if (localStream) {
-                videoSocket.send(JSON.stringify({
-                    type: 'join',
-                    username: username
-                }));
-            }
+            // Send join message with user email
+            videoSocket.send(JSON.stringify({
+                type: 'join',
+                username: userEmail,
+                hasVideo: true,
+                hasAudio: true
+            }));
         };
 
-        videoSocket.onmessage = function(e) {
-            const data = JSON.parse(e.data);
-            
-            switch(data.type) {
-                case 'user_joined':
-                    handleUserJoined(data.username);
-                    break;
-                case 'user_left':
-                    handleUserLeft(data.username);
-                    break;
-                case 'offer':
-                    handleOffer(data.offer, data.username);
-                    break;
-                case 'answer':
-                    handleAnswer(data.answer, data.username);
-                    break;
-                case 'ice':
-                    handleIceCandidate(data.ice, data.username);
-                    break;
-            }
-        };
-
-        videoSocket.onclose = (e) => {
-            console.log('Video WebSocket closed. Attempting to reconnect...', e.reason);
+        videoSocket.onclose = () => {
+            console.log('Video WebSocket closed');
             updateConnectionStatus('video', 'Disconnected', true);
             
+            // Try to reconnect
             if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-                reconnectAttempts++;
                 setTimeout(() => {
+                    reconnectAttempts++;
                     createVideoSocket();
-                }, 3000 * reconnectAttempts);  // Exponential backoff
-            } else {
-                updateConnectionStatus('video', 'Failed to connect after multiple attempts', true);
+                }, 2000 * Math.pow(2, reconnectAttempts));
+            }
+        };
+
+        videoSocket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            switch (data.type) {
+                case 'user_joined':
+                    console.log('User joined:', data.username);
+                    updateActiveUsersList(data.users);
+                    break;
+                    
+                case 'user_left':
+                    console.log('User left:', data.username);
+                    break;
+                    
+                case 'active_users_list':
+                    console.log('Active users update:', data.users);
+                    updateActiveUsersList(data.users);
+                    break;
+                    
+                case 'user_status_update':
+                    console.log('User status update:', data.username, data.hasVideo, data.hasAudio);
+                    break;
             }
         };
 
         videoSocket.onerror = (error) => {
             console.error('Video WebSocket error:', error);
-            updateConnectionStatus('video', 'Error connecting', true);
+            updateConnectionStatus('video', 'Connection error', true);
         };
     } catch (error) {
         console.error('Error creating video WebSocket:', error);
-        updateConnectionStatus('video', 'Error creating connection', true);
+        updateConnectionStatus('video', 'Connection error', true);
     }
 }
 
-function createChatSocket() {
-    if (chatSocket && (chatSocket.readyState === WebSocket.OPEN || chatSocket.readyState === WebSocket.CONNECTING)) {
-        return;
-    }
-
-    updateConnectionStatus('chat', 'Connecting...');
-    
-    try {
-        chatSocket = new WebSocket(
-            'ws://' + window.location.host + '/ws/chat/' + roomName + '/'
-        );
-
-        chatSocket.onopen = () => {
-            console.log('Chat WebSocket connected');
-            updateConnectionStatus('chat', 'Connected');
-            reconnectAttempts = 0;
-            
-            // Enable chat input when connected
-            document.getElementById('chat-input').disabled = false;
-            document.getElementById('send-message').disabled = false;
-        };
-
-        chatSocket.onmessage = function(e) {
-            const data = JSON.parse(e.data);
-            
-            if (data.type === 'chat_history') {
-                // Clear existing messages
-                const chatMessages = document.getElementById('chat-messages');
-                chatMessages.innerHTML = '';
-                
-                // Add all history messages
-                data.messages.forEach(msg => {
-                    addChatMessage(msg.username, msg.message, msg.timestamp);
-                });
-            } else if (data.type === 'chat_message') {
-                // Add new message
-                addChatMessage(data.username, data.message);
-            }
-        };
-
-        chatSocket.onclose = (e) => {
-            console.log('Chat WebSocket closed. Attempting to reconnect...', e.reason);
-            updateConnectionStatus('chat', 'Disconnected', true);
-            
-            // Disable chat input when disconnected
-            document.getElementById('chat-input').disabled = true;
-            document.getElementById('send-message').disabled = true;
-            
-            if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-                reconnectAttempts++;
-                setTimeout(() => {
-                    createChatSocket();
-                }, 3000 * reconnectAttempts);  // Exponential backoff
-            } else {
-                updateConnectionStatus('chat', 'Failed to connect after multiple attempts', true);
-            }
-        };
-
-        chatSocket.onerror = (error) => {
-            console.error('Chat WebSocket error:', error);
-            updateConnectionStatus('chat', 'Error connecting', true);
-        };
-    } catch (error) {
-        console.error('Error creating chat WebSocket:', error);
-        updateConnectionStatus('chat', 'Error creating connection', true);
-    }
-}
-
-// Safe WebSocket send function
-function safeSendVideo(data) {
-    if (videoSocket && videoSocket.readyState === WebSocket.OPEN) {
-        videoSocket.send(data);
-    } else {
-        console.warn('Video WebSocket is not open. Message not sent:', data);
-    }
-}
-
-function safeSendChat(data) {
-    if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
-        chatSocket.send(data);
-    } else {
-        console.warn('Chat WebSocket is not open. Message not sent:', data);
-    }
-}
-
-// Initialize
-async function init() {
-    try {
-        // First try to establish WebSocket connections
-        createVideoSocket();
-        createChatSocket();
-        
-        // Then get media stream with specific constraints
-        localStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
-                facingMode: "user"
-            },
-            audio: true
-        });
-
-        // Set up local video
-        const localVideo = document.getElementById('localVideo');
-        localVideo.srcObject = localStream;
-        localVideo.parentElement.classList.add('small');
-        
-        // Add play handler to ensure video plays
-        localVideo.onloadedmetadata = () => {
-            localVideo.play().catch(e => console.error('Error playing local video:', e));
-        };
-        
-    } catch (e) {
-        console.error('Error during initialization:', e);
-        alert('Error accessing camera/microphone. Please make sure you have granted the necessary permissions.');
-    }
-}
-
-// Handle new user joining
-async function handleUserJoined(newUsername) {
-    if (newUsername === username) return;
-    
-    // Create new peer connection
-    const peerConnection = new RTCPeerConnection(configuration);
-    peerConnections[newUsername] = peerConnection;
-    
-    // Add local stream
-    localStream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, localStream);
-    });
-    
-    // Handle ICE candidates
-    peerConnection.onicecandidate = event => {
-        if (event.candidate) {
-            safeSendVideo(JSON.stringify({
-                type: 'ice',
-                ice: event.candidate,
-                target: newUsername
-            }));
-        }
-    };
-    
-    // Handle remote stream
-    peerConnection.ontrack = event => {
-        const remoteVideo = document.createElement('video');
-        remoteVideo.id = `video-${newUsername}`;
-        remoteVideo.autoplay = true;
-        remoteVideo.playsinline = true;
-        remoteVideo.srcObject = event.streams[0];
-        
-        const videoContainer = document.createElement('div');
-        videoContainer.className = 'video-container';
-        videoContainer.id = `container-${newUsername}`;
-        
-        const videoLabel = document.createElement('div');
-        videoLabel.className = 'video-label';
-        videoLabel.textContent = newUsername;
-        
-        videoContainer.appendChild(remoteVideo);
-        videoContainer.appendChild(videoLabel);
-        document.getElementById('videos-container').appendChild(videoContainer);
-
-        // Add play handler
-        remoteVideo.onloadedmetadata = () => {
-            remoteVideo.play().catch(e => console.error('Error playing remote video:', e));
-        };
-    };
-    
-    // Create and send offer
-    try {
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        safeSendVideo(JSON.stringify({
-            type: 'offer',
-            offer: offer,
-            target: newUsername
-        }));
-    } catch (e) {
-        console.error('Error creating offer:', e);
-    }
-}
-
-// Handle user leaving
-function handleUserLeft(leftUsername) {
-    const videoContainer = document.getElementById(`container-${leftUsername}`);
-    if (videoContainer) {
-        videoContainer.remove();
-    }
-    
-    if (peerConnections[leftUsername]) {
-        peerConnections[leftUsername].close();
-        delete peerConnections[leftUsername];
-    }
-}
-
-// Handle received offer
-async function handleOffer(offer, fromUsername) {
-    const peerConnection = new RTCPeerConnection(configuration);
-    peerConnections[fromUsername] = peerConnection;
-    
-    // Add local stream
-    localStream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, localStream);
-    });
-    
-    // Handle ICE candidates
-    peerConnection.onicecandidate = event => {
-        if (event.candidate) {
-            safeSendVideo(JSON.stringify({
-                type: 'ice',
-                ice: event.candidate,
-                target: fromUsername
-            }));
-        }
-    };
-    
-    // Handle remote stream
-    peerConnection.ontrack = event => {
-        const remoteVideo = document.createElement('video');
-        remoteVideo.id = `video-${fromUsername}`;
-        remoteVideo.autoplay = true;
-        remoteVideo.playsinline = true;
-        remoteVideo.srcObject = event.streams[0];
-        
-        const videoContainer = document.createElement('div');
-        videoContainer.className = 'video-container';
-        videoContainer.id = `container-${fromUsername}`;
-        
-        const videoLabel = document.createElement('div');
-        videoLabel.className = 'video-label';
-        videoLabel.textContent = fromUsername;
-        
-        videoContainer.appendChild(remoteVideo);
-        videoContainer.appendChild(videoLabel);
-        document.getElementById('videos-container').appendChild(videoContainer);
-
-        // Add play handler
-        remoteVideo.onloadedmetadata = () => {
-            remoteVideo.play().catch(e => console.error('Error playing remote video:', e));
-        };
-    };
-    
-    // Set remote description and create answer
-    try {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        
-        safeSendVideo(JSON.stringify({
-            type: 'answer',
-            answer: answer,
-            target: fromUsername
-        }));
-    } catch (e) {
-        console.error('Error handling offer:', e);
-    }
-}
-
-// Handle received answer
-async function handleAnswer(answer, fromUsername) {
-    try {
-        const peerConnection = peerConnections[fromUsername];
-        if (peerConnection) {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-        }
-    } catch (e) {
-        console.error('Error handling answer:', e);
-    }
-}
-
-// Handle received ICE candidate
-async function handleIceCandidate(ice, fromUsername) {
-    try {
-        const peerConnection = peerConnections[fromUsername];
-        if (peerConnection) {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(ice));
-        }
-    } catch (e) {
-        console.error('Error handling ICE candidate:', e);
-    }
-}
-
-// Chat functions
-function addChatMessage(username, message, timestamp = null) {
-    const chatMessages = document.getElementById('chat-messages');
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `chat-message ${username === window.username ? 'own' : 'other'}`;
-    
-    const usernameSpan = document.createElement('div');
-    usernameSpan.className = 'chat-username';
-    usernameSpan.textContent = username;
-    
-    const contentDiv = document.createElement('div');
-    contentDiv.textContent = message;
-    
-    const timestampDiv = document.createElement('div');
-    timestampDiv.className = 'chat-timestamp';
-    timestampDiv.textContent = timestamp || new Date().toLocaleTimeString();
-    
-    messageDiv.appendChild(usernameSpan);
-    messageDiv.appendChild(contentDiv);
-    messageDiv.appendChild(timestampDiv);
-    
-    chatMessages.appendChild(messageDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-// Event listeners
-document.getElementById('send-message').addEventListener('click', () => {
-    const input = document.getElementById('chat-input');
-    const message = input.value.trim();
-    
-    if (message) {
-        safeSendChat(JSON.stringify({
-            'message': message,
-            'username': username
-        }));
-        input.value = '';
-    }
-});
-
-document.getElementById('chat-input').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        document.getElementById('send-message').click();
-    }
-});
-
-document.getElementById('toggleVideoBtn').addEventListener('click', () => {
-    const videoTrack = localStream.getVideoTracks()[0];
-    videoTrack.enabled = !videoTrack.enabled;
-});
-
-document.getElementById('toggleAudioBtn').addEventListener('click', () => {
-    const audioTrack = localStream.getAudioTracks()[0];
-    audioTrack.enabled = !audioTrack.enabled;
-});
-
-document.getElementById('leaveBtn').addEventListener('click', () => {
-    window.location.href = '/';
-});
-
-// Clean up on page unload
-window.addEventListener('beforeunload', () => {
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-    }
-    
-    Object.values(peerConnections).forEach(pc => {
-        if (pc) {
-            pc.close();
-        }
-    });
-    
-    if (videoSocket) {
-        videoSocket.close();
-    }
-    if (chatSocket) {
-        chatSocket.close();
-    }
-});
-
-// Initialize when page loads
-init();
+// Initialize connections when page loads
+createVideoSocket();
 </script>
-{% endblock %} 
+
+{% block extra_css %}
+<style>
+    .active-users-sidebar {
+        height: 100%;
+        border-right: 1px solid #dee2e6;
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .active-users-header {
+        padding: 10px;
+        border-bottom: 1px solid #dee2e6;
+        margin-bottom: 15px;
+    }
+
+    .active-users-list {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .active-user-item {
+        padding: 10px;
+        margin-bottom: 8px;
+        border-radius: 8px;
+        background: #f8f9fa;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: all 0.2s ease;
+    }
+
+    .active-user-item:hover {
+        background: #e9ecef;
+        transform: translateX(5px);
+    }
+
+    .active-user-item.current-user {
+        background: #e3f2fd;
+        border: 1px solid #90caf9;
+    }
+
+    .user-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: #007bff;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+    }
+
+    .user-info {
+        flex: 1;
+    }
+
+    .user-name {
+        font-weight: 500;
+        margin-bottom: 4px;
+    }
+
+    .user-controls {
+        display: flex;
+        gap: 8px;
+        color: #6c757d;
+    }
+
+    .video-container {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 16/9;
+        background: #000;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .video-container video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .video-label {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .controls-container {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        padding: 15px;
+    }
+
+    .control-button {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: none;
+        background: #f8f9fa;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .control-button:hover {
+        background: #e9ecef;
+    }
+
+    .control-button[data-active="false"] {
+        background: #dc3545;
+        color: white;
+    }
+</style>
+{% endblock %}
+{% endblock %}

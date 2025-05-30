@@ -5,8 +5,14 @@ from .models import Room, Message
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
+        # Check if user is authenticated
+        if not self.scope["user"].is_authenticated:
+            await self.close()
+            return
+            
         self.room_name = self.scope['url_route']['kwargs']['room_name']
         self.room_group_name = f'chat_{self.room_name}'
+        self.user = self.scope["user"]
 
         # Join room group
         await self.channel_layer.group_add(
@@ -34,7 +40,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         text_data_json = json.loads(text_data)
         message = text_data_json['message']
-        username = text_data_json['username']
+        username = self.user.email  # Use authenticated user's email
 
         # Save message to database
         await self.save_message(username, message)

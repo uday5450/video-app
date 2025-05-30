@@ -27,7 +27,48 @@ SECRET_KEY = 'django-insecure-b825b1mb!py_0x-&gp_h*knqya80f&uoxzajy+2gnn#hl0@f08
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.ngrok-free.app',
+    'http://*.ngrok-free.app',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'http://192.168.*',
+]
 
+# WebSocket settings
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = False  # Set to True in production
+
+# CORS settings
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    "https://*.ngrok-free.app",
+    "http://*.ngrok-free.app",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://192.168.*",
+]
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.ngrok-free\.app$",
+    r"^http://192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$",
+]
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'x-forwarded-proto',
+    'x-forwarded-for',
+    'x-real-ip',
+]
 
 # Application definition
 
@@ -147,13 +188,23 @@ CHANNEL_LAYERS = {
     },
 }
 
-# CORS settings
-CORS_ALLOW_ALL_ORIGINS = True  # Only for development
-CORS_ALLOW_CREDENTIALS = True
-
 # Rest Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
     ]
 }
+
+# Custom user model
+AUTH_USER_MODEL = 'video.User'
+
+# Login/Logout URLs
+LOGIN_URL = 'video:login'
+LOGIN_REDIRECT_URL = 'video:index'
+LOGOUT_REDIRECT_URL = 'video:login'
+
+# Message settings
+MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
