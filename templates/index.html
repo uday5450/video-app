@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">Welcome to Video Call App</h2>
+                
+                <!-- Username Form -->
+                <div id="username-form" class="mb-4">
+                    <div class="form-group">
+                        <label for="username">Enter your username:</label>
+                        <input type="text" class="form-control" id="username" required>
+                    </div>
+                    <button class="btn btn-primary w-100 mt-3" onclick="setUsername()">Continue</button>
+                </div>
+
+                <!-- Room Form (initially hidden) -->
+                <div id="room-form" style="display: none;">
+                    <div class="form-group mb-3">
+                        <label for="room-name">Room Name:</label>
+                        <input type="text" class="form-control" id="room-name" required>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-success" onclick="createOrJoinRoom()">Create or Join Room</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentUsername = '';
+
+function setUsername() {
+    const usernameInput = document.getElementById('username');
+    const username = usernameInput.value.trim();
+    
+    if (username) {
+        currentUsername = username;
+        document.getElementById('username-form').style.display = 'none';
+        document.getElementById('room-form').style.display = 'block';
+    } else {
+        alert('Please enter a valid username');
+    }
+}
+
+function createOrJoinRoom() {
+    const roomName = document.getElementById('room-name').value.trim();
+    
+    if (roomName) {
+        // Create or join room
+        fetch('/api/video/rooms/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name: roomName })
+        })
+        .then(response => {
+            // Redirect to room page regardless of whether it was created or already existed
+            window.location.href = `/room/${roomName}?username=${encodeURIComponent(currentUsername)}`;
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error creating/joining room');
+        });
+    } else {
+        alert('Please enter a valid room name');
+    }
+}
+</script>
+{% endblock %} 
