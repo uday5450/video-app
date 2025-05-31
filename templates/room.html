@@ -554,6 +554,44 @@ document.getElementById('toggleVideoBtn').addEventListener('click', function() {
     }
 });
 
+// Update the audio toggle handler
+document.getElementById('toggleAudioBtn').addEventListener('click', function() {
+    const isActive = this.getAttribute('data-active') === 'true';
+    const audioTracks = localStream ? localStream.getAudioTracks() : [];
+    
+    if (audioTracks.length > 0) {
+        const audioTrack = audioTracks[0];
+        audioTrack.enabled = !isActive;
+        
+        // Update button state
+        this.setAttribute('data-active', !isActive);
+        this.innerHTML = !isActive ? 
+            '<i class="fas fa-microphone"></i>' : 
+            '<i class="fas fa-microphone-slash"></i>';
+        
+        // Log audio state for debugging
+        console.log('Audio track state:', {
+            enabled: audioTrack.enabled,
+            muted: audioTrack.muted,
+            readyState: audioTrack.readyState
+        });
+        
+        // Send status update to server
+        if (videoSocket && videoSocket.readyState === WebSocket.OPEN) {
+            videoSocket.send(JSON.stringify({
+                type: 'update_status',
+                hasVideo: document.getElementById('toggleVideoBtn').getAttribute('data-active') === 'true',
+                hasAudio: !isActive
+            }));
+        }
+    } else {
+        console.warn('No audio track available');
+        this.disabled = true;
+        this.setAttribute('data-active', 'false');
+        this.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+    }
+});
+
 function createVideoContainer(username, isLocal = false) {
     const container = document.createElement('div');
     container.className = 'video-container small';
@@ -614,23 +652,139 @@ function updateParticipantVideo(username, hasVideo) {
 // Add these WebRTC functions after the existing variables
 async function startLocalStream() {
     try {
-        localStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true
-        });
+        // First try to get audio access
+        let audioStream = null;
+        try {
+            audioStream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                }
+            });
+            console.log('Audio access granted:', audioStream);
+        } catch (audioError) {
+            console.error('Audio access error:', audioError);
+        }
+
+        // Then try to get video access
+        let videoStream = null;
+        try {
+            videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            console.log('Video access granted:', videoStream);
+        } catch (videoError) {
+            console.error('Video access error:', videoError);
+        }
+
+        // Combine the streams
+        const tracks = [
+            ...(audioStream ? audioStream.getTracks() : []),
+            ...(videoStream ? videoStream.getTracks() : [])
+        ];
+
+        if (tracks.length === 0) {
+            throw new Error('No media access granted');
+        }
+
+        // Create a new MediaStream with all tracks
+        localStream = new MediaStream(tracks);
         
         // Display local video
         const localVideo = document.getElementById('localVideo');
         localVideo.srcObject = localStream;
         
         // Enable control buttons
-        document.getElementById('toggleVideoBtn').disabled = false;
-        document.getElementById('toggleAudioBtn').disabled = false;
+        const toggleVideoBtn = document.getElementById('toggleVideoBtn');
+        const toggleAudioBtn = document.getElementById('toggleAudioBtn');
+        
+        // Handle video button
+        const videoTrack = localStream.getVideoTracks()[0];
+        if (videoTrack) {
+            toggleVideoBtn.disabled = false;
+            toggleVideoBtn.setAttribute('data-active', 'true');
+            videoTrack.enabled = true;
+        } else {
+            toggleVideoBtn.disabled = true;
+            toggleVideoBtn.setAttribute('data-active', 'false');
+            toggleVideoBtn.innerHTML = '<i class="fas fa-video-slash"></i>';
+        }
+        
+        // Handle audio button and immediately start sharing audio
+        const audioTrack = localStream.getAudioTracks()[0];
+        if (audioTrack) {
+            // Enable audio track and set up button
+            audioTrack.enabled = true;
+            toggleAudioBtn.disabled = false;
+            toggleAudioBtn.setAttribute('data-active', 'true');
+            toggleAudioBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+            
+            // Immediately start sharing audio with existing peers
+            Object.entries(peerConnections).forEach(([username, peerConnection]) => {
+                // Remove any existing audio sender
+                const audioSender = peerConnection.getSenders().find(sender => 
+                    sender.track && sender.track.kind === 'audio'
+                );
+                if (audioSender) {
+                    peerConnection.removeTrack(audioSender);
+                }
+                
+                // Add the new audio track
+                peerConnection.addTrack(audioTrack, localStream);
+                
+                // Renegotiate the connection
+                peerConnection.createOffer()
+                    .then(offer => peerConnection.setLocalDescription(offer))
+                    .then(() => {
+                        if (videoSocket && videoSocket.readyState === WebSocket.OPEN) {
+                            videoSocket.send(JSON.stringify({
+                                type: 'video_offer',
+                                target: username,
+                                offer: peerConnection.localDescription
+                            }));
+                        }
+                    })
+                    .catch(error => console.error('Error renegotiating connection:', error));
+            });
+            
+            // Add event listener for audio track ended
+            audioTrack.onended = () => {
+                console.log('Audio track ended');
+                toggleAudioBtn.setAttribute('data-active', 'false');
+                toggleAudioBtn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+            };
+        } else {
+            toggleAudioBtn.disabled = true;
+            toggleAudioBtn.setAttribute('data-active', 'false');
+            toggleAudioBtn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+        }
+
+        // Send initial status to server
+        if (videoSocket && videoSocket.readyState === WebSocket.OPEN) {
+            videoSocket.send(JSON.stringify({
+                type: 'update_status',
+                hasVideo: videoTrack ? videoTrack.enabled : false,
+                hasAudio: audioTrack ? audioTrack.enabled : false
+            }));
+        }
+
+        // Log active tracks for debugging
+        console.log('Active tracks:', {
+            audio: localStream.getAudioTracks().map(t => ({
+                enabled: t.enabled,
+                muted: t.muted,
+                readyState: t.readyState
+            })),
+            video: localStream.getVideoTracks().map(t => ({
+                enabled: t.enabled,
+                muted: t.muted,
+                readyState: t.readyState
+            }))
+        });
         
         return true;
     } catch (error) {
         console.error('Error accessing media devices:', error);
-        updateConnectionStatus('video', 'Media access denied', true);
+        updateConnectionStatus('video', 'Media access error: ' + error.message, true);
         return false;
     }
 }
@@ -647,6 +801,7 @@ async function createPeerConnection(username) {
     // Add local tracks to the peer connection
     if (localStream) {
         localStream.getTracks().forEach(track => {
+            console.log('Adding track to peer connection:', track.kind);
             peerConnection.addTrack(track, localStream);
         });
     }
@@ -664,8 +819,19 @@ async function createPeerConnection(username) {
         }
     };
 
+    // Handle connection state changes
+    peerConnection.onconnectionstatechange = () => {
+        console.log(`Connection state with ${username}:`, peerConnection.connectionState);
+    };
+
+    // Handle ICE connection state changes
+    peerConnection.oniceconnectionstatechange = () => {
+        console.log(`ICE connection state with ${username}:`, peerConnection.iceConnectionState);
+    };
+
     // Handle incoming tracks
     peerConnection.ontrack = (event) => {
+        console.log('Received track:', event.track.kind);
         const [stream] = event.streams;
         const videoElement = document.getElementById(`video-${username}`);
         if (videoElement) {
