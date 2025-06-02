@@ -129,17 +129,13 @@ function updateActiveUsersList(users) {
     const activeUsersList = document.getElementById('activeUsersList');
     const activeCount = document.getElementById('activeCount');
     
-    // Clear the current list
     activeUsersList.innerHTML = '';
     
-    // Filter only active users if needed (though backend should already do this)
-    const activeUsers = users.filter(user => user.isActive);
-    
-    activeUsers.forEach(user => {
+    users.forEach(user => {
         const userItem = document.createElement('div');
         userItem.className = `active-user-item ${user.username === userEmail ? 'current-user' : ''}`;
+        userItem.setAttribute('data-username', user.username);
         
-        // Create user avatar with first letter of email
         const avatar = document.createElement('div');
         avatar.className = 'user-avatar';
         avatar.textContent = user.username.charAt(0).toUpperCase();
@@ -147,34 +143,35 @@ function updateActiveUsersList(users) {
         const userInfo = document.createElement('div');
         userInfo.className = 'user-info';
         
-        // Create user name display
         const name = document.createElement('div');
         name.className = 'user-name';
         name.textContent = user.username === userEmail ? `${user.username} (You)` : user.username;
         
-        // Create media controls indicators
         const controls = document.createElement('div');
         controls.className = 'user-controls';
         
         // Video status indicator
         const videoStatus = document.createElement('span');
         videoStatus.className = 'media-status';
+        videoStatus.setAttribute('data-type', 'video');
+        videoStatus.setAttribute('data-active', user.hasVideo);
         videoStatus.innerHTML = user.hasVideo ? 
             '<i class="fas fa-video"></i>' : 
             '<i class="fas fa-video-slash"></i>';
         videoStatus.title = user.hasVideo ? 'Video On' : 'Video Off';
-        controls.appendChild(videoStatus);
         
         // Audio status indicator
         const audioStatus = document.createElement('span');
         audioStatus.className = 'media-status';
+        audioStatus.setAttribute('data-type', 'audio');
+        audioStatus.setAttribute('data-active', user.hasAudio);
         audioStatus.innerHTML = user.hasAudio ? 
             '<i class="fas fa-microphone"></i>' : 
             '<i class="fas fa-microphone-slash"></i>';
         audioStatus.title = user.hasAudio ? 'Audio On' : 'Audio Off';
-        controls.appendChild(audioStatus);
         
-        // Assemble the user item
+        controls.appendChild(videoStatus);
+        controls.appendChild(audioStatus);
         userInfo.appendChild(name);
         userInfo.appendChild(controls);
         userItem.appendChild(avatar);
@@ -182,14 +179,7 @@ function updateActiveUsersList(users) {
         activeUsersList.appendChild(userItem);
     });
     
-    // Update the active users count
-    activeCount.textContent = activeUsers.length;
-    
-    // Update the active users header
-    const activeUsersHeader = document.querySelector('.active-users-header h6');
-    if (activeUsersHeader) {
-        activeUsersHeader.innerHTML = `Active Users <span id="activeCount" class="badge bg-success">${activeUsers.length}</span>`;
-    }
+    activeCount.textContent = users.length;
 }
 
 // WebSocket Functions
@@ -241,7 +231,7 @@ function createVideoSocket() {
                     if (data.username !== userEmail) {
                         addRemoteParticipant(data.username);
                         updateParticipantVideo(data.username, data.hasVideo);
-                        // Initiate call with new participant
+                        updateParticipantAudioState(data.username, data.hasAudio);
                         await initiateCall(data.username);
                     }
                     updateActiveUsersList(data.users);
@@ -251,7 +241,6 @@ function createVideoSocket() {
                     console.log('User left:', data.username);
                     if (data.username !== userEmail) {
                         removeRemoteParticipant(data.username);
-                        // Clean up peer connection
                         if (peerConnections[data.username]) {
                             peerConnections[data.username].close();
                             delete peerConnections[data.username];
@@ -272,29 +261,43 @@ function createVideoSocket() {
                     await handleIceCandidate(data);
                     break;
                     
-                case 'active_users_list':
-                    console.log('Active users update:', data.users);
-                    // Clear existing remote participants
-                    const videosContainer = document.getElementById('videos-container');
-                    const localVideo = document.querySelector('.video-container.small');
-                    videosContainer.innerHTML = '';
-                    videosContainer.appendChild(localVideo);
-                    
-                    // Add remote participants
-                    data.users.forEach(user => {
-                        if (user.username !== userEmail) {
-                            addRemoteParticipant(user.username);
-                            updateParticipantVideo(user.username, user.hasVideo);
+                case 'audio_state_change':
+                    if (data.username !== userEmail) {
+                        console.log('Audio state change for:', data.username, 'hasAudio:', data.hasAudio);
+                        updateParticipantAudioState(data.username, data.hasAudio);
+                        
+                        // Update the peer connection's audio track state
+                        const peerConnection = peerConnections[data.username];
+                        if (peerConnection) {
+                            const audioReceiver = peerConnection.getReceivers()
+                                .find(receiver => receiver.track && receiver.track.kind === 'audio');
+                            if (audioReceiver && audioReceiver.track) {
+                                audioReceiver.track.enabled = data.hasAudio;
+                            }
                         }
-                    });
-                    updateActiveUsersList(data.users);
+                    }
                     break;
                     
-                case 'user_status_update':
-                    console.log('User status update:', data.username, data.hasVideo, data.hasAudio);
+                case 'video_status_update':
                     if (data.username !== userEmail) {
                         updateParticipantVideo(data.username, data.hasVideo);
                     }
+                    updateActiveUsersList(data.users);
+                    break;
+                    
+                case 'active_users_list':
+                    console.log('Active users update:', data.users);
+                    data.users.forEach(user => {
+                        if (user.username !== userEmail) {
+                            const videoElement = document.getElementById(`video-${user.username}`);
+                            if (!videoElement) {
+                                addRemoteParticipant(user.username);
+                            }
+                            updateParticipantVideo(user.username, user.hasVideo);
+                            updateParticipantAudio(user.username, user.hasAudio);
+                        }
+                    });
+                    updateActiveUsersList(data.users);
                     break;
             }
         };
@@ -512,85 +515,148 @@ chatStyles.textContent = `
 `;
 document.head.appendChild(chatStyles);
 
-// Add this function to handle video toggling
+// Update the video toggle handler
+document.getElementById('toggleVideoBtn').addEventListener('click', async function() {
+    const isActive = this.getAttribute('data-active') === 'true';
+    
+    try {
+        if (localStream) {
+            const videoTracks = localStream.getVideoTracks();
+            videoTracks.forEach(track => {
+                track.enabled = !isActive;
+            });
+
+            // Update button state and UI
+            this.setAttribute('data-active', !isActive);
+            this.innerHTML = !isActive ? 
+                '<i class="fas fa-video"></i>' : 
+                '<i class="fas fa-video-slash"></i>';
+
+            // Update video display
+            const localVideo = document.getElementById('localVideo');
+            const localVideoAvatar = document.getElementById('localVideoAvatar');
+            updateVideoDisplay(localVideo, localVideoAvatar, !isActive);
+
+            // Send separate video status update
+            if (videoSocket && videoSocket.readyState === WebSocket.OPEN) {
+                videoSocket.send(JSON.stringify({
+                    type: 'video_status_update',
+                    username: userEmail,
+                    hasVideo: !isActive
+                }));
+            }
+
+            // Update video tracks in peer connections
+            Object.values(peerConnections).forEach(peerConnection => {
+                const senders = peerConnection.getSenders();
+                senders.forEach(sender => {
+                    if (sender.track && sender.track.kind === 'video') {
+                        sender.track.enabled = !isActive;
+                    }
+                });
+            });
+        }
+    } catch (error) {
+        console.error('Error toggling video:', error);
+    }
+});
+
+// Update the audio toggle handler with improved peer connection handling
+document.getElementById('toggleAudioBtn').addEventListener('click', async function() {
+    const isActive = this.getAttribute('data-active') === 'true';
+    
+    try {
+        if (localStream) {
+            // Only toggle local audio tracks
+            const audioTracks = localStream.getAudioTracks();
+            audioTracks.forEach(track => {
+                track.enabled = !isActive;
+            });
+
+            // Update button state
+            this.setAttribute('data-active', !isActive);
+            this.innerHTML = !isActive ? 
+                '<i class="fas fa-microphone"></i>' : 
+                '<i class="fas fa-microphone-slash"></i>';
+
+            // Send audio-only status update to server
+            if (videoSocket && videoSocket.readyState === WebSocket.OPEN) {
+                videoSocket.send(JSON.stringify({
+                    type: 'audio_state_change',
+                    username: userEmail,
+                    hasAudio: !isActive,
+                    timestamp: Date.now()
+                }));
+            }
+        }
+    } catch (error) {
+        console.error('Error toggling audio:', error);
+    }
+});
+
+// Add this function to properly handle video display updates
 function updateVideoDisplay(videoElement, avatarElement, hasVideo) {
     const container = videoElement.parentElement;
-    if (!hasVideo) {
-        container.classList.add('video-off');
-    } else {
-        container.classList.remove('video-off');
+    if (container) {
+        if (!hasVideo) {
+            videoElement.style.display = 'none';
+            avatarElement.style.display = 'flex';
+            container.classList.add('video-off');
+        } else {
+            videoElement.style.display = 'block';
+            avatarElement.style.display = 'none';
+            container.classList.remove('video-off');
+        }
     }
 }
 
-// Modify the video toggle button click handler
-document.getElementById('toggleVideoBtn').addEventListener('click', function() {
-    const isActive = this.getAttribute('data-active') === 'true';
-    this.setAttribute('data-active', !isActive);
-    
-    // Update UI
-    this.innerHTML = !isActive ? 
-        '<i class="fas fa-video"></i>' : 
-        '<i class="fas fa-video-slash"></i>';
-    
-    // Enable/disable video track
-    if (localStream) {
-        localStream.getVideoTracks().forEach(track => {
-            track.enabled = !isActive;
+// Update the startLocalStream function to properly initialize media states
+async function startLocalStream() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            }
         });
-    }
-    
-    // Update video display
-    const localVideo = document.getElementById('localVideo');
-    const localAvatar = document.getElementById('localVideoAvatar');
-    updateVideoDisplay(localVideo, localAvatar, !isActive);
-    
-    // Send status update to server
-    if (videoSocket && videoSocket.readyState === WebSocket.OPEN) {
-        videoSocket.send(JSON.stringify({
-            type: 'update_status',
-            hasVideo: !isActive,
-            hasAudio: document.getElementById('toggleAudioBtn').getAttribute('data-active') === 'true'
-        }));
-    }
-});
 
-// Update the audio toggle handler
-document.getElementById('toggleAudioBtn').addEventListener('click', function() {
-    const isActive = this.getAttribute('data-active') === 'true';
-    const audioTracks = localStream ? localStream.getAudioTracks() : [];
-    
-    if (audioTracks.length > 0) {
-        const audioTrack = audioTracks[0];
-        audioTrack.enabled = !isActive;
-        
-        // Update button state
-        this.setAttribute('data-active', !isActive);
-        this.innerHTML = !isActive ? 
-            '<i class="fas fa-microphone"></i>' : 
-            '<i class="fas fa-microphone-slash"></i>';
-        
-        // Log audio state for debugging
-        console.log('Audio track state:', {
-            enabled: audioTrack.enabled,
-            muted: audioTrack.muted,
-            readyState: audioTrack.readyState
-        });
-        
-        // Send status update to server
-        if (videoSocket && videoSocket.readyState === WebSocket.OPEN) {
-            videoSocket.send(JSON.stringify({
-                type: 'update_status',
-                hasVideo: document.getElementById('toggleVideoBtn').getAttribute('data-active') === 'true',
-                hasAudio: !isActive
-            }));
+        localStream = stream;
+        const localVideo = document.getElementById('localVideo');
+        if (localVideo) {
+            localVideo.srcObject = stream;
         }
-    } else {
-        console.warn('No audio track available');
-        this.disabled = true;
-        this.setAttribute('data-active', 'false');
-        this.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+
+        // Enable and setup video button
+        const toggleVideoBtn = document.getElementById('toggleVideoBtn');
+        if (toggleVideoBtn) {
+            toggleVideoBtn.disabled = false;
+            toggleVideoBtn.setAttribute('data-active', 'true');
+            toggleVideoBtn.innerHTML = '<i class="fas fa-video"></i>';
+        }
+
+        // Enable and setup audio button
+        const toggleAudioBtn = document.getElementById('toggleAudioBtn');
+        if (toggleAudioBtn) {
+            toggleAudioBtn.disabled = false;
+            toggleAudioBtn.setAttribute('data-active', 'true');
+            toggleAudioBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+        }
+
+        // Initialize video display
+        const localVideoAvatar = document.getElementById('localVideoAvatar');
+        if (localVideo && localVideoAvatar) {
+            updateVideoDisplay(localVideo, localVideoAvatar, true);
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error accessing media devices:', error);
+        updateConnectionStatus('video', 'Media access error: ' + error.message, true);
+        return false;
     }
-});
+}
 
 function createVideoContainer(username, isLocal = false) {
     const container = document.createElement('div');
@@ -650,145 +716,6 @@ function updateParticipantVideo(username, hasVideo) {
 }
 
 // Add these WebRTC functions after the existing variables
-async function startLocalStream() {
-    try {
-        // First try to get audio access
-        let audioStream = null;
-        try {
-            audioStream = await navigator.mediaDevices.getUserMedia({ 
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
-                }
-            });
-            console.log('Audio access granted:', audioStream);
-        } catch (audioError) {
-            console.error('Audio access error:', audioError);
-        }
-
-        // Then try to get video access
-        let videoStream = null;
-        try {
-            videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
-            console.log('Video access granted:', videoStream);
-        } catch (videoError) {
-            console.error('Video access error:', videoError);
-        }
-
-        // Combine the streams
-        const tracks = [
-            ...(audioStream ? audioStream.getTracks() : []),
-            ...(videoStream ? videoStream.getTracks() : [])
-        ];
-
-        if (tracks.length === 0) {
-            throw new Error('No media access granted');
-        }
-
-        // Create a new MediaStream with all tracks
-        localStream = new MediaStream(tracks);
-        
-        // Display local video
-        const localVideo = document.getElementById('localVideo');
-        localVideo.srcObject = localStream;
-        
-        // Enable control buttons
-        const toggleVideoBtn = document.getElementById('toggleVideoBtn');
-        const toggleAudioBtn = document.getElementById('toggleAudioBtn');
-        
-        // Handle video button
-        const videoTrack = localStream.getVideoTracks()[0];
-        if (videoTrack) {
-            toggleVideoBtn.disabled = false;
-            toggleVideoBtn.setAttribute('data-active', 'true');
-            videoTrack.enabled = true;
-        } else {
-            toggleVideoBtn.disabled = true;
-            toggleVideoBtn.setAttribute('data-active', 'false');
-            toggleVideoBtn.innerHTML = '<i class="fas fa-video-slash"></i>';
-        }
-        
-        // Handle audio button and immediately start sharing audio
-        const audioTrack = localStream.getAudioTracks()[0];
-        if (audioTrack) {
-            // Enable audio track and set up button
-            audioTrack.enabled = true;
-            toggleAudioBtn.disabled = false;
-            toggleAudioBtn.setAttribute('data-active', 'true');
-            toggleAudioBtn.innerHTML = '<i class="fas fa-microphone"></i>';
-            
-            // Immediately start sharing audio with existing peers
-            Object.entries(peerConnections).forEach(([username, peerConnection]) => {
-                // Remove any existing audio sender
-                const audioSender = peerConnection.getSenders().find(sender => 
-                    sender.track && sender.track.kind === 'audio'
-                );
-                if (audioSender) {
-                    peerConnection.removeTrack(audioSender);
-                }
-                
-                // Add the new audio track
-                peerConnection.addTrack(audioTrack, localStream);
-                
-                // Renegotiate the connection
-                peerConnection.createOffer()
-                    .then(offer => peerConnection.setLocalDescription(offer))
-                    .then(() => {
-                        if (videoSocket && videoSocket.readyState === WebSocket.OPEN) {
-                            videoSocket.send(JSON.stringify({
-                                type: 'video_offer',
-                                target: username,
-                                offer: peerConnection.localDescription
-                            }));
-                        }
-                    })
-                    .catch(error => console.error('Error renegotiating connection:', error));
-            });
-            
-            // Add event listener for audio track ended
-            audioTrack.onended = () => {
-                console.log('Audio track ended');
-                toggleAudioBtn.setAttribute('data-active', 'false');
-                toggleAudioBtn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
-            };
-        } else {
-            toggleAudioBtn.disabled = true;
-            toggleAudioBtn.setAttribute('data-active', 'false');
-            toggleAudioBtn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
-        }
-
-        // Send initial status to server
-        if (videoSocket && videoSocket.readyState === WebSocket.OPEN) {
-            videoSocket.send(JSON.stringify({
-                type: 'update_status',
-                hasVideo: videoTrack ? videoTrack.enabled : false,
-                hasAudio: audioTrack ? audioTrack.enabled : false
-            }));
-        }
-
-        // Log active tracks for debugging
-        console.log('Active tracks:', {
-            audio: localStream.getAudioTracks().map(t => ({
-                enabled: t.enabled,
-                muted: t.muted,
-                readyState: t.readyState
-            })),
-            video: localStream.getVideoTracks().map(t => ({
-                enabled: t.enabled,
-                muted: t.muted,
-                readyState: t.readyState
-            }))
-        });
-        
-        return true;
-    } catch (error) {
-        console.error('Error accessing media devices:', error);
-        updateConnectionStatus('video', 'Media access error: ' + error.message, true);
-        return false;
-    }
-}
-
 async function createPeerConnection(username) {
     if (peerConnections[username]) {
         console.log('Peer connection already exists for:', username);
@@ -801,10 +728,37 @@ async function createPeerConnection(username) {
     // Add local tracks to the peer connection
     if (localStream) {
         localStream.getTracks().forEach(track => {
-            console.log('Adding track to peer connection:', track.kind);
-            peerConnection.addTrack(track, localStream);
+            const sender = peerConnection.addTrack(track, localStream);
+            // Store the initial enabled state for audio tracks
+            if (track.kind === 'audio') {
+                sender.track.enabled = document.getElementById('toggleAudioBtn')
+                    .getAttribute('data-active') === 'true';
+            }
         });
     }
+
+    // Handle incoming tracks
+    peerConnection.ontrack = (event) => {
+        console.log('Received track:', event.track.kind, 'from:', username);
+        const [stream] = event.streams;
+        
+        if (event.track.kind === 'video') {
+            const videoElement = document.getElementById(`video-${username}`);
+            if (videoElement) {
+                videoElement.srcObject = stream;
+            }
+        }
+        
+        // For audio tracks, set initial enabled state
+        if (event.track.kind === 'audio') {
+            const userItem = document.querySelector(`.active-user-item[data-username="${username}"]`);
+            if (userItem) {
+                const hasAudio = userItem.querySelector('.media-status[data-type="audio"]')
+                    ?.getAttribute('data-active') === 'true';
+                event.track.enabled = hasAudio;
+            }
+        }
+    };
 
     // Handle ICE candidates
     peerConnection.onicecandidate = (event) => {
@@ -816,26 +770,6 @@ async function createPeerConnection(username) {
                     candidate: event.candidate
                 }));
             }
-        }
-    };
-
-    // Handle connection state changes
-    peerConnection.onconnectionstatechange = () => {
-        console.log(`Connection state with ${username}:`, peerConnection.connectionState);
-    };
-
-    // Handle ICE connection state changes
-    peerConnection.oniceconnectionstatechange = () => {
-        console.log(`ICE connection state with ${username}:`, peerConnection.iceConnectionState);
-    };
-
-    // Handle incoming tracks
-    peerConnection.ontrack = (event) => {
-        console.log('Received track:', event.track.kind);
-        const [stream] = event.streams;
-        const videoElement = document.getElementById(`video-${username}`);
-        if (videoElement) {
-            videoElement.srcObject = stream;
         }
     };
 
@@ -958,6 +892,31 @@ document.getElementById('leaveBtn').addEventListener('click', async () => {
         window.location.href = '/';
     }
 });
+
+// Add new function to handle audio state updates
+function updateParticipantAudioState(username, hasAudio) {
+    // Update UI to show audio state
+    const userItem = document.querySelector(`.active-user-item[data-username="${username}"]`);
+    if (userItem) {
+        const audioStatus = userItem.querySelector('.media-status[data-type="audio"]');
+        if (audioStatus) {
+            audioStatus.innerHTML = hasAudio ? 
+                '<i class="fas fa-microphone"></i>' : 
+                '<i class="fas fa-microphone-slash"></i>';
+            audioStatus.title = hasAudio ? 'Audio On' : 'Audio Off';
+        }
+    }
+
+    // Update the peer connection's audio track if it exists
+    const peerConnection = peerConnections[username];
+    if (peerConnection) {
+        const audioReceiver = peerConnection.getReceivers()
+            .find(receiver => receiver.track && receiver.track.kind === 'audio');
+        if (audioReceiver && audioReceiver.track) {
+            audioReceiver.track.enabled = hasAudio;
+        }
+    }
+}
 </script>
 
 {% block extra_css %}
