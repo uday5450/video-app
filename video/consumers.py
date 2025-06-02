@@ -179,6 +179,7 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
         participant, created = Participant.objects.get_or_create(
             room=room,
             user=self.user,
+            is_deleted=False,  # Ensure we only consider active participants
             defaults={
                 'has_video': has_video,
                 'has_audio': has_audio,
@@ -198,7 +199,8 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
         try:
             participant = Participant.objects.get(
                 room__name=self.room_name,
-                user=self.user
+                user=self.user,
+                is_deleted=False 
             )
             participant.has_video = has_video
             participant.has_audio = has_audio
@@ -211,10 +213,12 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
         try:
             participant = Participant.objects.get(
                 room__name=self.room_name,
-                user=self.user
+                user=self.user,
+                is_deleted=False
             )
             # Instead of just marking inactive, delete the participant
-            participant.delete()
+            participant.is_deleted = True
+            participant.save()
         except Participant.DoesNotExist:
             pass
 
@@ -225,6 +229,7 @@ class VideoCallConsumer(AsyncWebsocketConsumer):
             # Only get participants that are marked as active
             participants = Participant.objects.filter(
                 room=room,
+                is_deleted=False,
                 is_active=True
             ).select_related('user')
             

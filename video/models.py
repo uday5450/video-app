@@ -44,6 +44,7 @@ class Participant(models.Model):
     has_audio = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
     joined_at = models.DateTimeField(auto_now_add=True)
+    is_deleted = models.BooleanField(default=False)
     
     class Meta:
         unique_together = ['room', 'user']

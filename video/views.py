@@ -33,7 +33,7 @@ class ParticipantListView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         room_name = self.kwargs['room_name']
-        return Participant.objects.filter(room__name=room_name)
+        return Participant.objects.filter(room__name=room_name, is_deleted=False)
 
     def perform_create(self, serializer):
         room_name = self.kwargs['room_name']
@@ -91,6 +91,7 @@ def room(request, room_name):
     participant, created = Participant.objects.get_or_create(
         room=room,
         user=request.user,
+        is_deleted=False, 
         defaults={
             'is_active': True,
             'has_video': True,
