@@ -14,6 +14,8 @@ from pathlib import Path
 import os
 
 import urllib.parse
+from dotenv import load_dotenv
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -200,11 +202,15 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [(parsed.hostname, parsed.port)],
+            "hosts": [{
+                "host": parsed.hostname,
+                "port": parsed.port,
+                "password": parsed.password,
+                "ssl": parsed.scheme == "rediss",
+            }],
         },
     },
 }
-
 # Rest Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
