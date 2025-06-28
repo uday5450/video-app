@@ -200,21 +200,12 @@ ASGI_APPLICATION = 'video_call_project.asgi.application'
 # }
 
 redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379")
-parsed = urllib.parse.urlparse(redis_url)
-
-# Optional SSL context if needed
-ssl_context = ssl.create_default_context() if parsed.scheme == "rediss" else None
-
+print(":::::::::::::::::::::::::::  redis_url ::::::::::::  ",redis_url)
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [{
-                "host": parsed.hostname,
-                "port": parsed.port,
-                "password": parsed.password,
-                **({"ssl_context": ssl_context} if ssl_context else {})
-            }],
+            "hosts": [redis_url],
         },
     },
 }
