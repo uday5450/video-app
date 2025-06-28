@@ -13,6 +13,9 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 from pathlib import Path
 import os
 
+
+import ssl
+
 import urllib.parse
 from dotenv import load_dotenv
 load_dotenv()
@@ -54,6 +57,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "http://192.168.*",
+    "*",
 ]
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://.*\.ngrok-free\.app$",
@@ -198,6 +202,9 @@ ASGI_APPLICATION = 'video_call_project.asgi.application'
 redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379")
 parsed = urllib.parse.urlparse(redis_url)
 
+# Optional SSL context if needed
+ssl_context = ssl.create_default_context() if parsed.scheme == "rediss" else None
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -206,11 +213,13 @@ CHANNEL_LAYERS = {
                 "host": parsed.hostname,
                 "port": parsed.port,
                 "password": parsed.password,
-                "ssl": parsed.scheme == "rediss",
+                **({"ssl_context": ssl_context} if ssl_context else {})
             }],
         },
     },
 }
+
+
 # Rest Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
